@@ -60,10 +60,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['username']) && isset($
 
     if (strtolower($username) === $valid_username && password_verify($password, $valid_password_hash)) {
         $_SESSION['loggedin'] = true;
-        header('Location: ' . $_SERVER['PHP_SELF']);
+        header('Content-Type: application/json');
+        echo json_encode(['status' => 'success']);
         exit;
     } else {
-        $error = 'Oops! The username or password you entered doesn\'t match our records. Please try again.';
+        header('HTTP/1.1 401 Unauthorized');
+        header('Content-Type: application/json');
+        echo json_encode(['status' => 'error', 'message' => 'Oops! The username or password you entered doesn\'t match our records. Please try again.']);
+        exit;
     }
 }
 
@@ -85,8 +89,9 @@ if (isset($_SESSION['loggedin']) && $_SESSION['loggedin']) {
                 }
             }
         }
-        echo $response;
-        exit;
+	header('Content-Type: application/json');
+	echo json_encode(['status' => 'success', 'message' => $response]);
+	exit;
     }
 
     // Handle file download
@@ -145,7 +150,7 @@ if (isset($_SESSION['loggedin']) && $_SESSION['loggedin']) {
         exit;
     }
 
-    // Fetch files for AJAX request
+    // Check for an AJAX request to return JSON
     if (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest') {
         $files = array_filter(array_diff(scandir($uploadDir), array('.', '..')), function($file) use ($uploadDir) {
             return pathinfo($file, PATHINFO_EXTENSION) !== 'php';
@@ -201,7 +206,8 @@ if (isset($_SESSION['loggedin']) && $_SESSION['loggedin']) {
         <?php if (isset($error)): ?>
             <div class="alert alert-danger"><?php echo $error; ?></div>
         <?php endif; ?>
-        <form method="POST">
+	<div id="status" class="mt-3"></div>
+        <form id="loginForm">
             <div class="form-group">
                 <label for="username">Username</label>
                 <input type="text" name="username" class="form-control" id="username" required>
@@ -300,7 +306,7 @@ $(document).ready(function() {
                 $('#status').text('');
             },
             success: function(response) {
-                $('#status').html('<div class="alert alert-success">' + response + '</div>');
+                $('#status').html('<div class="alert alert-success">' + response.message + '</div>');
                 $('#progressBar').css('width', '100%');
                 $('#progressBar').text('100%');
                 setTimeout(function() {
@@ -472,6 +478,33 @@ $(document).ready(function() {
 
         handleFiles(files);
     }
+   <?php else: ?>
+    $('#loginForm').on('submit', function(e) {
+        e.preventDefault();
+        var formData = $(this).serialize();
+        
+		$.ajax({
+	        type: 'POST',
+	        url: '<?= $_SERVER['PHP_SELF'] ?>',
+	        data: formData,
+	        dataType: 'json',
+	        success: function(response) {
+	            if (response.status === 'success') {
+	                location.reload();
+	            } else {
+	                $('#status').html('<div class="alert alert-danger">' + response.message + '</div>');
+	            }
+	        },
+	        error: function(xhr, status, error) {
+	            if (xhr.status === 401) {
+	                var response = JSON.parse(xhr.responseText);
+	                $('#status').html('<div class="alert alert-danger">' + response.message + '</div>');
+	            } else {
+	                $('#status').html('<div class="alert alert-danger">Error logging in: ' + error + '</div>');
+	            }
+	        }
+	    });
+    });
     <?php endif; ?>
 });
 </script>
