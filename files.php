@@ -89,9 +89,9 @@ if (isset($_SESSION['loggedin']) && $_SESSION['loggedin']) {
                 }
             }
         }
-	header('Content-Type: application/json');
-	echo json_encode(['status' => 'success', 'message' => $response]);
-	exit;
+        header('Content-Type: application/json');
+        echo json_encode(['status' => 'success', 'message' => $response]);
+        exit;
     }
 
     // Handle file download
@@ -155,7 +155,19 @@ if (isset($_SESSION['loggedin']) && $_SESSION['loggedin']) {
         $files = array_filter(array_diff(scandir($uploadDir), array('.', '..')), function($file) use ($uploadDir) {
             return pathinfo($file, PATHINFO_EXTENSION) !== 'php';
         });
-        echo json_encode(array_values($files));
+
+        $fileList = [];
+        foreach ($files as $file) {
+            $filePath = $uploadDir . $file;
+            $fileList[] = [
+                'name' => $file,
+                'size' => number_format(filesize($filePath) / 1024, 2), // Size in KB
+                'lastModified' => date('Y-m-d H:i:s', filemtime($filePath))
+            ];
+        }
+
+        header('Content-Type: application/json');
+        echo json_encode($fileList);
         exit;
     }
 
@@ -206,7 +218,7 @@ if (isset($_SESSION['loggedin']) && $_SESSION['loggedin']) {
         <?php if (isset($error)): ?>
             <div class="alert alert-danger"><?php echo $error; ?></div>
         <?php endif; ?>
-	<div id="status" class="mt-3"></div>
+        <div id="status" class="mt-3"></div>
         <form id="loginForm">
             <div class="form-group">
                 <label for="username">Username</label>
@@ -483,29 +495,29 @@ $(document).ready(function() {
         e.preventDefault();
         var formData = $(this).serialize();
         
-		$.ajax({
-	        type: 'POST',
-	        url: '<?= $_SERVER['PHP_SELF'] ?>',
-	        data: formData,
-	        dataType: 'json',
-	        success: function(response) {
-	            if (response.status === 'success') {
-	                location.reload();
-	            } else {
-	                $('#status').html('<div class="alert alert-danger">' + response.message + '</div>');
-	            }
-	        },
-	        error: function(xhr, status, error) {
-	            if (xhr.status === 401) {
-	                var response = JSON.parse(xhr.responseText);
-	                $('#status').html('<div class="alert alert-danger">' + response.message + '</div>');
-	            } else {
-	                $('#status').html('<div class="alert alert-danger">Error logging in: ' + error + '</div>');
-	            }
-	        }
-	    });
-    });
-    <?php endif; ?>
+        $.ajax({
+            type: 'POST',
+            url: '<?= $_SERVER['PHP_SELF'] ?>',
+            data: formData,
+            dataType: 'json',
+            success: function(response) {
+                if (response.status === 'success') {
+                    location.reload();
+                } else {
+                    $('#status').html('<div class="alert alert-danger">' + response.message + '</div>');
+                }
+            },
+            error: function(xhr, status, error) {
+               if (xhr.status === 401) {
+                  var response = JSON.parse(xhr.responseText);
+                  $('#status').html('<div class="alert alert-danger">' + response.message + '</div>');
+               } else {
+                  $('#status').html('<div class="alert alert-danger">Error logging in: ' + error + '</div>');
+               }
+            }
+        });
+   });
+   <?php endif; ?>
 });
 </script>
 </body>
